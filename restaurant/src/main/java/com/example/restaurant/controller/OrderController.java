@@ -4,6 +4,7 @@ import com.example.restaurant.entity.Order;
 import com.example.restaurant.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDateTime;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -43,16 +44,64 @@ public class OrderController {
         return "ok";
     }
 
-    // 老板看所有订单（按订单号分组）
-    @GetMapping("/boss")
-    public Map<String, Object> boss() {
-        List<Order> all = orderRepository.findAll();
+    // ===================== 老板页增强版（最终版） =====================
+// 1. 查看所有订单
+    @GetMapping("/boss/all")
+    public List<Order> bossAll() {
+        List<Order> list = orderRepository.findAll();
+        list.sort((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()));
+        return list;
+    }
 
-        Map<String, List<Order>> map = all.stream()
-                .collect(Collectors.groupingBy(Order::getOrderNo));
+    // 2. 按月统计营收
+    @GetMapping("/boss/monthly")
+    public List<Map<String, Object>> bossMonthly() {
+        List<Order> list = orderRepository.findAll();
+        Map<String, Double> sumMap = new HashMap<>();
+        Map<String, Integer> countMap = new HashMap<>();
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("orders", map);
+        for (Order o : list) {
+            if (!"已结账".equals(o.getStatus())) continue;
+            String month = o.getCreateTime().toString().substring(0, 7);
+            double money = o.getPrice() * o.getQuantity();
+            sumMap.put(month, sumMap.getOrDefault(month, 0.0) + money);
+            countMap.put(month, countMap.getOrDefault(month, 0) + 1);
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (String key : sumMap.keySet()) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("month", key);
+            map.put("total", sumMap.get(key));
+            map.put("count", countMap.get(key));
+            result.add(map);
+        }
+        return result;
+    }
+
+    // 3. 按年统计营收
+    @GetMapping("/boss/yearly")
+    public List<Map<String, Object>> bossYearly() {
+        List<Order> list = orderRepository.findAll();
+        Map<String, Double> sumMap = new HashMap<>();
+        Map<String, Integer> countMap = new HashMap<>();
+
+        for (Order o : list) {
+            if (!"已结账".equals(o.getStatus())) continue;
+            String year = o.getCreateTime().toString().substring(0, 4);
+            double money = o.getPrice() * o.getQuantity();
+            sumMap.put(year, sumMap.getOrDefault(year, 0.0) + money);
+            countMap.put(year, countMap.getOrDefault(year, 0) + 1);
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (String key : sumMap.keySet()) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("year", key);
+            map.put("total", sumMap.get(key));
+            map.put("count", countMap.get(key));
+            result.add(map);
+        }
         return result;
     }
 
@@ -71,6 +120,34 @@ public class OrderController {
             orderRepository.save(o);
         }
         return "ok";
+    }
+
+    // 老板：总统计卡片（已修复时间类型错误）
+    @GetMapping("/boss/stat")
+    public Map<String, Object> bossStat() {
+        List<Order> list = orderRepository.findAll();
+        int totalCount = 0;
+        double totalMoney = 0.0;
+        LocalDateTime lastTime = null;
+
+        for (Order o : list) {
+            if (!"已结账".equals(o.getStatus())) continue;
+
+            totalCount++;
+            totalMoney += o.getPrice() * o.getQuantity();
+
+            LocalDateTime currentTime = o.getCreateTime();
+            if (lastTime == null || currentTime.isAfter(lastTime)) {
+                lastTime = currentTime;
+            }
+        }
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("totalCount", totalCount);
+        map.put("totalMoney", totalMoney);
+        map.put("lastTime", lastTime != null ? lastTime.toString() : "");
+
+        return map;
     }
 
     // 前台：按桌号汇总所有未结账订单 + 算金额
