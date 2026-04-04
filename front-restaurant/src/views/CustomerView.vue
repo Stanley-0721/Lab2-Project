@@ -97,11 +97,18 @@ export default {
       if (!this.cart.length) return alert("请选菜品")
       if (!this.table) return alert("请选桌号")
 
+      // 生成唯一订单号（关键！）
+      const date = new Date()
+      const dateStr = date.toISOString().slice(0,10).replace(/-/g, '')
+      const random = Math.floor(Math.random()*10000).toString().padStart(4,'0')
+      const orderNo = 'O' + dateStr + random
+
       for (let item of this.cart) {
         await fetch("http://localhost:8080/order/add", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            orderNo: orderNo,    // 这里带上订单号
             dishName: item.name,
             price: item.price,
             quantity: item.count,
@@ -111,7 +118,7 @@ export default {
         })
       }
 
-      alert("下单成功！桌号：" + this.table)
+      alert("下单成功！订单号：" + orderNo + " 桌号：" + this.table)
       this.cart = []
       this.table = null
     }
