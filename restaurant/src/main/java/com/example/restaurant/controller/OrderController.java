@@ -99,7 +99,7 @@ public class OrderController {
         return result;
     }
 
-    // 前台：结账 → 整桌状态改为已结账
+    // 前台：结账 → 整桌状态改为已结账（增强健壮性）
     @GetMapping("/checkout/{tableNum}")
     public String checkout(@PathVariable String tableNum) {
         List<Order> orders = orderRepository.findAll()
@@ -107,10 +107,24 @@ public class OrderController {
                 .filter(o -> tableNum.equals(o.getTableNum()))
                 .toList();
 
+        // 健壮性判断：只要有一个菜不是【已上菜】，就不让结账
+        boolean canCheckout = true;
+        for (Order o : orders) {
+            if (!"已上菜".equals(o.getStatus())) {
+                canCheckout = false;
+                break;
+            }
+        }
+
+        if (!canCheckout) {
+            return "不能结账：该桌还有未上菜的菜品！";
+        }
+
+        // 全部已上菜 → 允许结账
         for (Order o : orders) {
             o.setStatus("已结账");
             orderRepository.save(o);
         }
-        return "ok";
+        return "结账成功！";
     }
 }

@@ -26,7 +26,9 @@ export default {
       this.tableData = await r.json();
     },
     async checkout(tableNum) {
-      await fetch("http://localhost:8080/order/checkout/" + tableNum);
+      let res = await fetch("http://localhost:8080/order/checkout/" + tableNum);
+      let msg = await res.text();
+      alert(msg); // 弹出成功或失败提示
       this.load();
     }
   }
