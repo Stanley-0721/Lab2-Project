@@ -58,22 +58,21 @@ export default {
         return;
       }
 
-      for (let item of this.cart) {
-        let order = {
-          dishName: item.name,
-          price: item.price,
-          quantity: item.count,
-          tableNum: this.tableNum,
-          status: "待制作"
-        };
-        await fetch("http://localhost:8080/order/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(order)
-        });
-      }
+      let orderList = this.cart.map(item => ({
+        dishName: item.name,
+        price: item.price,
+        quantity: item.count,
+        tableNum: this.tableNum,
+        status: "待制作"
+      }));
 
-      this.msg = "✅ 下单成功！后厨已收到";
+      await fetch("http://localhost:8080/order/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderList)
+      });
+
+      this.msg = "✅ 下单成功！同一桌同一批 = 同一个订单";
       this.cart = [];
       this.tableNum = "";
     }
