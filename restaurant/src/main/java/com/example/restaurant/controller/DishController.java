@@ -3,10 +3,7 @@ package com.example.restaurant.controller;
 import com.example.restaurant.entity.Dish;
 import com.example.restaurant.repository.DishRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
@@ -14,10 +11,11 @@ import java.util.List;
 public class DishController {
 
     @Autowired
-    private DishRepository dishRepository;
+    private DishRepository repo;
 
-    @GetMapping("/list")
-    public List<Dish> list() {
-        return dishRepository.findAll();
+    // 获取所有菜品
+    @GetMapping("/all")
+    public List<Dish> getAll() {
+        return repo.findAll();
     }
 }

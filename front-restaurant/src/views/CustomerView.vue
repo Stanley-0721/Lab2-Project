@@ -1,91 +1,141 @@
 <template>
-  <div class="customer-page">
-    <h2>🍽️ 顾客点餐</h2>
+  <div class="page">
+    <h2>🍽 顾客点餐</h2>
 
-    <div class="dish-list">
-      <div v-for="dish in dishList" :key="dish.id" class="dish-item">
-        <span>{{ dish.name }} — ￥{{ dish.price }}</span>
-        <button @click="addToCart(dish)">点这个</button>
+    <div class="layout">
+      <!-- 左侧分类 -->
+      <div class="left">
+        <h3>菜品分类</h3>
+        <div
+          class="cate"
+          :class="{on: currentCate === item}"
+          v-for="item in cateList"
+          @click="currentCate = item"
+        >
+          {{ item }}
+        </div>
+      </div>
+
+      <!-- 右侧菜品 -->
+      <div class="right">
+        <div class="card" v-for="d in showList" :key="d.id">
+          <div class="name">{{ d.name }}</div>
+          <div class="sales">销量：{{ d.sales }}</div>
+          <div class="price">¥ {{ d.price }}</div>
+          <button class="btn" @click="add(d)">+ 点餐</button>
+        </div>
       </div>
     </div>
 
-    <div class="cart" v-if="cart.length > 0">
-      <h3>已点菜品</h3>
-      <div v-for="(item, index) in cart" :key="index">
-        {{ item.name }} × {{ item.count }} — ￥{{ item.price * item.count }}
+    <!-- 购物车 -->
+    <div class="cart">
+      <h3>🛒 购物车</h3>
+      <div v-for="(item, idx) in cart" :key="idx" class="cart-item">
+        {{ item.name }} × {{ item.count }}
+      </div>
+      <div class="total" v-if="cart.length">合计：¥ {{ total }}</div>
+
+      <!-- 桌号 -->
+      <div class="table-box">
+        <h4>选择桌号</h4>
+        <div class="table-list">
+          <button
+            v-for="n in 10"
+            :key="n"
+            :class="{active: table == n}"
+            @click="table = n"
+          >
+            {{ n }}
+          </button>
+        </div>
       </div>
 
-      <input v-model="tableNum" placeholder="输入桌号" />
-      <button @click="submitOrder">提交订单</button>
+      <button class="submit" @click="submit">提交订单</button>
     </div>
-
-    <p class="tip">{{ msg }}</p>
   </div>
 </template>
 
 <script>
 export default {
-  name: "CustomerView",
   data() {
     return {
+      cateList: ["全部", "热菜", "凉菜", "主食", "汤品", "饮品"],
+      currentCate: "全部",
       dishList: [],
       cart: [],
-      tableNum: "",
-      msg: ""
-    };
+      table: null
+    }
   },
+
+  computed: {
+    showList() {
+      if (this.currentCate === "全部") return this.dishList
+      return this.dishList.filter(d => d.category === this.currentCate)
+    },
+    total() {
+      return this.cart.reduce((s, i) => s + i.price * i.count, 0).toFixed(2)
+    }
+  },
+
   mounted() {
-    this.loadDishes();
+    this.getList()
   },
+
   methods: {
-    async loadDishes() {
-      let res = await fetch("http://localhost:8080/dish/list");
-      this.dishList = await res.json();
+    async getList() {
+      let res = await fetch("http://localhost:8080/dish/all")
+      this.dishList = await res.json()
     },
 
-    addToCart(dish) {
-      let exist = this.cart.find(i => i.id === dish.id);
-      if (exist) {
-        exist.count++;
-      } else {
-        this.cart.push({ ...dish, count: 1 });
-      }
+    add(dish) {
+      let item = this.cart.find(i => i.id === dish.id)
+      if (item) item.count++
+      else this.cart.push({ ...dish, count: 1 })
     },
 
-    async submitOrder() {
-      if (!this.tableNum) {
-        this.msg = "请输入桌号！";
-        return;
+    async submit() {
+      if (!this.cart.length) return alert("请选菜品")
+      if (!this.table) return alert("请选桌号")
+
+      for (let item of this.cart) {
+        await fetch("http://localhost:8080/order/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dishName: item.name,
+            price: item.price,
+            quantity: item.count,
+            tableNum: String(this.table),
+            status: "待制作"
+          })
+        })
       }
 
-      let orderList = this.cart.map(item => ({
-        dishName: item.name,
-        price: item.price,
-        quantity: item.count,
-        tableNum: this.tableNum,
-        status: "待制作"
-      }));
-
-      await fetch("http://localhost:8080/order/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderList)
-      });
-
-      this.msg = "✅ 下单成功！同一桌同一批 = 同一个订单";
-      this.cart = [];
-      this.tableNum = "";
+      alert("下单成功！桌号：" + this.table)
+      this.cart = []
+      this.table = null
     }
   }
-};
+}
 </script>
 
 <style scoped>
-.customer-page { padding: 20px; max-width: 500px; margin: auto; }
-.dish-list { margin: 20px 0; }
-.dish-item { padding: 10px; border: 1px solid #ddd; margin: 5px 0; display: flex; justify-content: space-between; }
-.cart { margin-top: 30px; padding: 15px; border: 1px solid #666; }
-input { padding: 8px; width: 100%; margin: 10px 0; }
-button { padding: 6px 12px; cursor: pointer; }
-.tip { color: green; margin-top: 10px; }
+.page { padding: 20px; }
+.layout { display: flex; gap: 20px; margin-bottom: 30px; }
+.left { width: 150px; background: #f5f5f5; padding: 15px; border-radius: 8px; }
+.cate { padding: 10px; margin: 6px 0; border-radius: 6px; cursor: pointer; }
+.cate.on { background: #0d6efd; color: white; }
+.right { flex: 1; display: grid; grid-template-columns: repeat(3,1fr); gap:15px; }
+.card { border:1px solid #ddd; padding:15px; border-radius:10px; text-align:center; }
+.name { font-weight:bold; margin-bottom:6px; }
+.sales { font-size:12px; color:#666; margin-bottom:6px; }
+.price { color:red; font-weight:bold; margin-bottom:10px; }
+.btn { background:#0d6efd; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; }
+.cart { background:#f9f9f9; padding:20px; border-radius:10px; }
+.cart-item { margin:4px 0; }
+.total { font-weight:bold; color:red; margin:10px 0; }
+.table-list { display:flex; gap:8px; margin:10px 0; }
+.table-list button { width:40px; height:40px; border-radius:50%; border:1px solid #ccc; cursor:pointer; }
+.table-list button.active { background:#0d6efd; color:white; }
+.submit { background:red; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:10px; }
 </style>

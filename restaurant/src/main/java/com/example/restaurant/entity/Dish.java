@@ -10,11 +10,14 @@ public class Dish {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name;    // 菜名
-    private Double price;   // 价格
-    private String image;   // 图片（可选）
+    private String name;
+    private Double price;
+    private String image;
 
-    // 无参构造
+    // 新增
+    private String category; // 分类
+    private int sales;      // 销量
+
     public Dish() {}
 
     // getter & setter
@@ -26,4 +29,10 @@ public class Dish {
     public void setPrice(Double price) { this.price = price; }
     public String getImage() { return image; }
     public void setImage(String image) { this.image = image; }
+
+    // 新增的 getter/setter
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+    public int getSales() { return sales; }
+    public void setSales(int sales) { this.sales = sales; }
 }
