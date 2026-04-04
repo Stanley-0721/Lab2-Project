@@ -55,4 +55,62 @@ public class OrderController {
         result.put("orders", map);
         return result;
     }
+
+    // 服务员：只看【已完成】的菜
+    @GetMapping("/waiter")
+    public List<Order> waiter() {
+        return orderRepository.findByStatus("已完成");
+    }
+
+    // 服务员：标记【已上菜】
+    @GetMapping("/serve/{id}")
+    public String serve(@PathVariable Long id) {
+        Order o = orderRepository.findById(id).orElse(null);
+        if (o != null) {
+            o.setStatus("已上菜");
+            orderRepository.save(o);
+        }
+        return "ok";
+    }
+
+    // 前台：按桌号汇总所有未结账订单 + 算金额
+    @GetMapping("/reception")
+    public Map<String, Object> reception() {
+        List<Order> all = orderRepository.findAll();
+        Map<String, List<Order>> groupByTable = all.stream()
+                .filter(o -> !"已结账".equals(o.getStatus()))
+                .collect(Collectors.groupingBy(Order::getTableNum));
+
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<String, List<Order>> entry : groupByTable.entrySet()) {
+            String table = entry.getKey();
+            List<Order> orders = entry.getValue();
+
+            double total = 0;
+            for (Order o : orders) {
+                total += o.getPrice() * o.getQuantity();
+            }
+
+            Map<String, Object> tableInfo = new HashMap<>();
+            tableInfo.put("orders", orders);
+            tableInfo.put("total", total);
+            result.put(table, tableInfo);
+        }
+        return result;
+    }
+
+    // 前台：结账 → 整桌状态改为已结账
+    @GetMapping("/checkout/{tableNum}")
+    public String checkout(@PathVariable String tableNum) {
+        List<Order> orders = orderRepository.findAll()
+                .stream()
+                .filter(o -> tableNum.equals(o.getTableNum()))
+                .toList();
+
+        for (Order o : orders) {
+            o.setStatus("已结账");
+            orderRepository.save(o);
+        }
+        return "ok";
+    }
 }
