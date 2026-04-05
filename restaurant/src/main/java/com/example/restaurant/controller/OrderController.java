@@ -19,20 +19,29 @@ public class OrderController {
     @Autowired
     private DishRepository dishRepository;
 
-    // ================== 顾客下单 ==================
+    // ================== 顾客下单：饮品直接跳过后厨 ==================
     @PostMapping("/add")
     public String add(@RequestBody Order order) {
-        order.setStatus("待制作");
-        orderRepository.save(order);
+        String dishName = order.getDishName();
+        Optional<Dish> dishOpt = dishRepository.findByName(dishName);
 
-        // ===================== 自动增加菜品销量 =====================
-        Optional<Dish> dishOptional = dishRepository.findByName(order.getDishName());
-        if (dishOptional.isPresent()) {
-            Dish dish = dishOptional.get();
+        if (dishOpt.isPresent()) {
+            Dish dish = dishOpt.get();
+            // 饮品 → 直接已完成，不上后厨
+            if ("饮品".equals(dish.getCategory())) {
+                order.setStatus("已完成");
+            } else {
+                order.setStatus("待制作");
+            }
+
+            // 增加销量
             dish.setSales(dish.getSales() + order.getQuantity());
             dishRepository.save(dish);
+        } else {
+            order.setStatus("待制作");
         }
 
+        orderRepository.save(order);
         return "ok";
     }
 
@@ -70,7 +79,7 @@ public class OrderController {
         return "ok";
     }
 
-    // ================== 前台：看某桌是否全部上菜 → 可结账 ==================
+    // ================== 前台：看某桌未结账订单 ==================
     @GetMapping("/cashier/{tableNum}")
     public List<Order> cashierTable(@PathVariable String tableNum) {
         return orderRepository.findByTableNumAndStatusNot(tableNum, "已结账");
@@ -115,7 +124,7 @@ public class OrderController {
 
         map.put("totalCount", orderSet.size());
         map.put("totalMoney", totalMoney);
-        map.put("lastTime", list.isEmpty() ? "" : list.get(list.size()-1).getCreateTime());
+        map.put("lastTime", list.isEmpty() ? "" : list.get(list.size() - 1).getCreateTime());
         return map;
     }
 
