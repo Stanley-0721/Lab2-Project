@@ -1,6 +1,8 @@
 package com.example.restaurant.controller;
 
+import com.example.restaurant.entity.Dish;
 import com.example.restaurant.entity.Order;
+import com.example.restaurant.repository.DishRepository;
 import com.example.restaurant.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -14,11 +16,23 @@ public class OrderController {
     @Autowired
     private OrderRepository orderRepository;
 
+    @Autowired
+    private DishRepository dishRepository;
+
     // ================== 顾客下单 ==================
     @PostMapping("/add")
     public String add(@RequestBody Order order) {
         order.setStatus("待制作");
         orderRepository.save(order);
+
+        // ===================== 自动增加菜品销量 =====================
+        Optional<Dish> dishOptional = dishRepository.findByName(order.getDishName());
+        if (dishOptional.isPresent()) {
+            Dish dish = dishOptional.get();
+            dish.setSales(dish.getSales() + order.getQuantity());
+            dishRepository.save(dish);
+        }
+
         return "ok";
     }
 
@@ -86,13 +100,11 @@ public class OrderController {
         return orderRepository.findAll();
     }
 
-    // 统计：总订单数、总金额（按真实订单算）
     @GetMapping("/boss/stat")
     public Map<String, Object> bossStat() {
         List<Order> list = orderRepository.findAll();
         Map<String, Object> map = new HashMap<>();
 
-        // 按 orderNo 去重 → 得到真实订单数
         Set<String> orderSet = new HashSet<>();
         double totalMoney = 0;
         for (Order o : list) {
@@ -101,13 +113,12 @@ public class OrderController {
             totalMoney += o.getPrice() * o.getQuantity();
         }
 
-        map.put("totalCount", orderSet.size()); // 真实订单数
+        map.put("totalCount", orderSet.size());
         map.put("totalMoney", totalMoney);
         map.put("lastTime", list.isEmpty() ? "" : list.get(list.size()-1).getCreateTime());
         return map;
     }
 
-    // 按年统计（真实订单数）
     @GetMapping("/boss/yearly")
     public List<Map<String, Object>> bossYearly() {
         List<Order> list = orderRepository.findAll();
@@ -140,7 +151,6 @@ public class OrderController {
         return res;
     }
 
-    // 按月统计（真实订单数）
     @GetMapping("/boss/monthly")
     public List<Map<String, Object>> bossMonthly() {
         List<Order> list = orderRepository.findAll();
