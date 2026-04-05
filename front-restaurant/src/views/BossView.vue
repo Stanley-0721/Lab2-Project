@@ -181,104 +181,87 @@ export default {
 
     // 图表初始化
     initAllCharts() {
-      this.yearChart = echarts.init(this.$refs.yearChart)
-      this.dishChart = echarts.init(this.$refs.dishChart)
-      this.monthChart = echarts.init(this.$refs.monthChart)
-      this.pieChart = echarts.init(this.$refs.pieChart)
+      const charts = [
+        echarts.init(this.$refs.yearChart),
+        echarts.init(this.$refs.dishChart),
+        echarts.init(this.$refs.monthChart),
+        echarts.init(this.$refs.pieChart)
+      ];
+      this.yearChart = charts[0];
+      this.dishChart = charts[1];
+      this.monthChart = charts[2];
+      this.pieChart = charts[3];
 
-      // ================== 1. 年度营收折线图 ==================
-      let yearData = [...this.yearList].sort((a, b) => a.year - b.year)
-      const years = yearData.map(y => y.year)
-      const yearMoney = yearData.map(y => y.total)
-
+      // ==========================
+      // 1. 年度营收折线图
+      // ==========================
+      const yearData = [...this.yearList].sort((a, b) => a.year - b.year);
       this.yearChart.setOption({
-        tooltip: {
-          trigger: 'axis',
-          formatter: "{b} 年<br>营收：¥{c}"
-        },
-        grid: { top: 10, right: 20, left: 30, bottom: 30 },
-        xAxis: [{ type: 'category', data: years }],
-        yAxis: [{ type: 'value' }],
+        tooltip: { show: true, trigger: "item" },
+        xAxis: { type: "category", data: yearData.map(y => y.year) },
+        yAxis: { type: "value" },
         series: [{
-          type: 'line',
-          data: yearMoney,
+          type: "line",
+          data: yearData.map(y => y.total),
           smooth: true
         }]
-      })
+      });
 
-      // ================== 2. 菜品销量 TOP10 柱状图 ==================
-      const dishMap = {}
+      // ==========================
+      // 2. 菜品销量 TOP10 柱状图
+      // ==========================
+      const dishMap = {};
       this.allOrders.forEach(o => {
-        dishMap[o.dishName] = (dishMap[o.dishName] || 0) + o.quantity
-      })
-
-      let dishArr = Object.entries(dishMap)
+        dishMap[o.dishName] = (dishMap[o.dishName] || 0) + o.quantity;
+      });
+      const dishArr = Object.entries(dishMap)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-
-      const dishNames = dishArr.map(i => i[0])
-      const dishCounts = dishArr.map(i => i[1])
+        .slice(0, 10);
 
       this.dishChart.setOption({
-        tooltip: {
-          trigger: 'axis',
-          formatter: "{b}<br>销量：{c} 杯"
-        },
-        grid: { top: 10, right: 20, left: 30, bottom: 60 },
-        xAxis: [{
-          type: 'category',
-          data: dishNames,
+        tooltip: { show: true, trigger: "item" },
+        xAxis: {
+          type: "category",
+          data: dishArr.map(d => d[0]),
           axisLabel: { rotate: 30 }
-        }],
-        yAxis: [{ type: 'value' }],
+        },
+        yAxis: { type: "value" },
         series: [{
-          type: 'bar',
-          data: dishCounts
+          type: "bar",
+          data: dishArr.map(d => d[1])
         }]
-      })
+      });
 
-      // ================== 3. 月度营收折线图 ==================
-      const curYear = new Date().getFullYear()
-      let monthData = this.monthList
+      // ==========================
+      // 3. 月度营收折线图
+      // ==========================
+      const curYear = new Date().getFullYear();
+      const monthData = this.monthList
         .filter(m => m.month.startsWith(curYear))
-        .sort((a, b) => a.month.localeCompare(b.month))
-
-      const months = monthData.map(m => m.month)
-      const monthMoney = monthData.map(m => m.total)
+        .sort((a, b) => a.month.localeCompare(b.month));
 
       this.monthChart.setOption({
-        tooltip: {
-          trigger: 'axis',
-          formatter: "{b}<br>营收：¥{c}"
-        },
-        grid: { top: 10, right: 20, left: 30, bottom: 30 },
-        xAxis: [{ type: 'category', data: months }],
-        yAxis: [{ type: 'value' }],
+        tooltip: { show: true, trigger: "item" },
+        xAxis: { type: "category", data: monthData.map(m => m.month) },
+        yAxis: { type: "value" },
         series: [{
-          type: 'line',
-          data: monthMoney,
+          type: "line",
+          data: monthData.map(m => m.total),
           smooth: true
         }]
-      })
+      });
 
-      // ================== 4. 饼图：今年有营业额的月份 ==================
-      let pieData = monthData
+      // ==========================
+      // 4. 饼图：今年有效月份
+      // ==========================
+      const pieData = monthData
         .filter(m => m.total > 0)
-        .map(m => ({
-          name: m.month,
-          value: m.total
-        }))
+        .map(m => ({ name: m.month, value: m.total }));
 
       this.pieChart.setOption({
-        tooltip: {
-          trigger: 'item',
-          formatter: "{b}<br>营收：¥{c}<br>占比：{d}%"
-        },
-        series: [{
-          type: 'pie',
-          data: pieData
-        }]
-      })
+        tooltip: { show: true, trigger: "item" },
+        series: [{ type: "pie", data: pieData }]
+      });
     }
   }
 }
