@@ -69,8 +69,12 @@ export default {
 
   computed: {
     showList() {
-      if (this.currentCate === "全部") return this.dishList
-      return this.dishList.filter(d => d.category === this.currentCate)
+      let list = this.dishList
+      if (this.currentCate !== "全部") {
+        list = list.filter(d => d.category === this.currentCate)
+      }
+      // 热销排前面
+      return list.sort((a, b) => b.sales - a.sales)
     },
     total() {
       return this.cart.reduce((s, i) => s + i.price * i.count, 0).toFixed(2)
