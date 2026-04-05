@@ -2,12 +2,35 @@
   <div class="page">
     <h2>📊 老板数据中心</h2>
 
-    <div class="stat-card" v-if="stat.totalCount >= 0">
-      <h3>🏪 餐厅总统计</h3>
-      <p>总订单数：{{ stat.totalCount }} 单 &nbsp;&nbsp; 总营收：¥ {{ stat.totalMoney.toFixed(2) }}</p>
-      <p>最近消费时间：{{ stat.lastTime }}</p>
+    <!-- 可展开的统计卡片 -->
+    <div class="collapse-card">
+      <div class="collapse-header" @click="toggleStat">
+        {{ showStat ? '▼' : '▶' }} 餐厅经营统计
+      </div>
+
+      <div v-if="showStat" class="collapse-body">
+        <div class="chart-grid">
+          <div class="chart-box">
+            <div class="chart-title">年度营收对比</div>
+            <div ref="yearChart" class="chart"></div>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">菜品销量排行</div>
+            <div ref="dishChart" class="chart"></div>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">月度营收趋势</div>
+            <div ref="monthChart" class="chart"></div>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">年度营收占比</div>
+            <div ref="pieChart" class="chart"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- 原有年份月份列表 -->
     <div class="year-list">
       <div class="year-item" v-for="year in yearList" :key="year.year">
         <div class="year-header" @click="toggleYear(year.year)">
@@ -32,7 +55,6 @@
             </div>
 
             <div class="order-cards" v-if="expandedMonths.includes(month.month)">
-              <!-- 合并后的订单组 -->
               <div class="order-card" v-for="group in getGroupedOrders(month.month)" :key="group.key">
                 <div class="card-top">
                   <span>订单号：{{ group.orderNo }}</span>
@@ -56,6 +78,8 @@
 </template>
 
 <script>
+import * as echarts from 'echarts'
+
 export default {
   data() {
     return {
@@ -66,7 +90,12 @@ export default {
       expandedYears: [],
       expandedMonths: [],
       sortBy: 'month',
-      sortDir: 'desc'
+      sortDir: 'desc',
+      showStat: false,
+      yearChart: null,
+      dishChart: null,
+      monthChart: null,
+      pieChart: null
     }
   },
   mounted() {
@@ -76,6 +105,12 @@ export default {
     this.loadAllOrders()
   },
   methods: {
+    toggleStat() {
+      this.showStat = !this.showStat
+      if (this.showStat) {
+        this.$nextTick(() => this.initAllCharts())
+      }
+    },
     async loadStat() {
       let r = await fetch('http://localhost:8080/order/boss/stat')
       this.stat = await r.json()
@@ -105,42 +140,28 @@ export default {
       }
       return list
     },
-
-    // ===================== 核心：按订单号合并 =====================
     getGroupedOrders(month) {
-      // 筛选当月订单
       const orders = this.allOrders.filter(o => {
         if (!o.createTime) return false
         return o.createTime.slice(0, 7) === month
       })
-
-      // 按 orderNo 分组
       const groupMap = {}
       orders.forEach(o => {
         const orderNo = o.orderNo || `NO_${o.id}`
         if (!groupMap[orderNo]) {
           groupMap[orderNo] = {
-            key: orderNo,
-            orderNo: orderNo,
-            tableNum: o.tableNum,
-            createTime: o.createTime,
-            status: o.status,
-            totalMoney: 0,
-            dishList: []
+            key: orderNo, orderNo, tableNum: o.tableNum, createTime: o.createTime,
+            status: o.status, totalMoney: 0, dishList: []
           }
         }
         groupMap[orderNo].dishList.push(o)
         groupMap[orderNo].totalMoney += o.price * o.quantity
       })
-
-      // 拼接菜品名称
       Object.values(groupMap).forEach(g => {
         g.dishes = g.dishList.map(i => `${i.dishName}×${i.quantity}`).join('，')
       })
-
       return Object.values(groupMap)
     },
-
     toggleYear(year) {
       const i = this.expandedYears.indexOf(year)
       i > -1 ? this.expandedYears.splice(i, 1) : this.expandedYears.push(year)
@@ -156,14 +177,156 @@ export default {
         this.sortBy = type
         this.sortDir = 'desc'
       }
+    },
+
+    // 图表初始化
+    initAllCharts() {
+      this.yearChart = echarts.init(this.$refs.yearChart)
+      this.dishChart = echarts.init(this.$refs.dishChart)
+      this.monthChart = echarts.init(this.$refs.monthChart)
+      this.pieChart = echarts.init(this.$refs.pieChart)
+
+      // ================== 1. 年度营收折线图 ==================
+      let yearData = [...this.yearList].sort((a, b) => a.year - b.year)
+      const years = yearData.map(y => y.year)
+      const yearMoney = yearData.map(y => y.total)
+
+      this.yearChart.setOption({
+        tooltip: {
+          trigger: 'axis',
+          formatter: "{b} 年<br>营收：¥{c}"
+        },
+        grid: { top: 10, right: 20, left: 30, bottom: 30 },
+        xAxis: [{ type: 'category', data: years }],
+        yAxis: [{ type: 'value' }],
+        series: [{
+          type: 'line',
+          data: yearMoney,
+          smooth: true
+        }]
+      })
+
+      // ================== 2. 菜品销量 TOP10 柱状图 ==================
+      const dishMap = {}
+      this.allOrders.forEach(o => {
+        dishMap[o.dishName] = (dishMap[o.dishName] || 0) + o.quantity
+      })
+
+      let dishArr = Object.entries(dishMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+
+      const dishNames = dishArr.map(i => i[0])
+      const dishCounts = dishArr.map(i => i[1])
+
+      this.dishChart.setOption({
+        tooltip: {
+          trigger: 'axis',
+          formatter: "{b}<br>销量：{c} 杯"
+        },
+        grid: { top: 10, right: 20, left: 30, bottom: 60 },
+        xAxis: [{
+          type: 'category',
+          data: dishNames,
+          axisLabel: { rotate: 30 }
+        }],
+        yAxis: [{ type: 'value' }],
+        series: [{
+          type: 'bar',
+          data: dishCounts
+        }]
+      })
+
+      // ================== 3. 月度营收折线图 ==================
+      const curYear = new Date().getFullYear()
+      let monthData = this.monthList
+        .filter(m => m.month.startsWith(curYear))
+        .sort((a, b) => a.month.localeCompare(b.month))
+
+      const months = monthData.map(m => m.month)
+      const monthMoney = monthData.map(m => m.total)
+
+      this.monthChart.setOption({
+        tooltip: {
+          trigger: 'axis',
+          formatter: "{b}<br>营收：¥{c}"
+        },
+        grid: { top: 10, right: 20, left: 30, bottom: 30 },
+        xAxis: [{ type: 'category', data: months }],
+        yAxis: [{ type: 'value' }],
+        series: [{
+          type: 'line',
+          data: monthMoney,
+          smooth: true
+        }]
+      })
+
+      // ================== 4. 饼图：今年有营业额的月份 ==================
+      let pieData = monthData
+        .filter(m => m.total > 0)
+        .map(m => ({
+          name: m.month,
+          value: m.total
+        }))
+
+      this.pieChart.setOption({
+        tooltip: {
+          trigger: 'item',
+          formatter: "{b}<br>营收：¥{c}<br>占比：{d}%"
+        },
+        series: [{
+          type: 'pie',
+          data: pieData
+        }]
+      })
     }
   }
 }
 </script>
 
 <style scoped>
-.page { padding: 24px; }
-.stat-card { padding: 16px; background: #f8f9fa; border-radius: 12px; margin-bottom: 20px; }
+.page { padding: 24px; background: #f7f8fa; min-height: 100vh; }
+h2 { margin-bottom: 20px; }
+
+/* 可展开卡片 */
+.collapse-card {
+  background: #fff;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+.collapse-header {
+  padding: 16px 20px;
+  font-weight: bold;
+  cursor: pointer;
+  background: #eef4ff;
+}
+.collapse-body {
+  padding: 20px;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.chart-box {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.chart-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+.chart {
+  width: 100%;
+  height: 220px;
+}
+
+/* 原有样式 */
 .year-list { margin-top: 10px; }
 .year-item { margin: 8px 0; }
 .year-header { padding: 14px 16px; background: #eef4ff; border-radius: 8px; cursor: pointer; font-weight: 500; }
