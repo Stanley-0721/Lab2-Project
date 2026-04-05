@@ -30,10 +30,22 @@
     <!-- 购物车 -->
     <div class="cart">
       <h3>🛒 购物车</h3>
+
       <div v-for="(item, idx) in cart" :key="idx" class="cart-item">
-        {{ item.name }} × {{ item.count }}
+        <span>{{ item.name }}</span>
+        <div class="count">
+          <button @click="minus(item)">−</button>
+          <span>{{ item.count }}</span>
+          <button @click="add(item)">+</button>
+        </div>
       </div>
+
       <div class="total" v-if="cart.length">合计：¥ {{ total }}</div>
+
+      <!-- 清空购物车 -->
+      <button v-if="cart.length" class="clear-btn" @click="clearCart">
+        清空购物车
+      </button>
 
       <!-- 桌号 -->
       <div class="table-box">
@@ -73,7 +85,6 @@ export default {
       if (this.currentCate !== "全部") {
         list = list.filter(d => d.category === this.currentCate)
       }
-      // 热销排前面
       return list.sort((a, b) => b.sales - a.sales)
     },
     total() {
@@ -91,6 +102,7 @@ export default {
       this.dishList = await res.json()
     },
 
+    // 添加
     add(dish) {
       let item = this.cart.find(i => i.id === dish.id)
       if (item) {
@@ -100,17 +112,32 @@ export default {
       }
     },
 
+    // 减少
+    minus(dish) {
+      let item = this.cart.find(i => i.id === dish.id)
+      if (!item) return
+      item.count--
+      if (item.count <= 0) {
+        this.cart = this.cart.filter(i => i.id !== dish.id)
+      }
+    },
+
+    // 清空购物车
+    clearCart() {
+      if (confirm("确定清空购物车？")) {
+        this.cart = []
+      }
+    },
+
     async submit() {
       if (!this.cart.length) return alert("请选菜品")
       if (!this.table) return alert("请选桌号")
 
-      // 生成统一订单号
       const date = new Date()
       const dateStr = date.toISOString().slice(0,10).replace(/-/g, '')
       const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
       const orderNo = 'O' + dateStr + random
 
-      // 批量下单
       for (let item of this.cart) {
         await fetch("http://localhost:8080/order/add", {
           method: "POST",
@@ -146,11 +173,43 @@ export default {
 .sales { font-size:12px; color: #666; margin-bottom:6px; }
 .price { color:red; font-weight:bold; margin-bottom:10px; }
 .btn { background:#0d6efd; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; }
+
 .cart { background: #f9f9f9; padding: 20px; border-radius: 10px; }
-.cart-item { margin:4px 0; }
+
+.cart-item {
+  margin: 8px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.count button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
+
 .total { font-weight:bold; color:red; margin:10px 0; }
+
+.clear-btn {
+  background: #ccc;
+  color: #333;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
 .table-list { display:flex; gap:8px; margin:10px 0; }
 .table-list button { width: 40px; height: 40px; border-radius:50%; border:1px solid #ccc; cursor:pointer; }
 .table-list button.active { background:#0d6efd; color:white; }
+
 .submit { background:red; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:10px; }
 </style>
