@@ -5,10 +5,7 @@ import com.example.restaurant.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/order")
@@ -65,7 +62,7 @@ public class OrderController {
         return orderRepository.findByTableNumAndStatusNot(tableNum, "已结账");
     }
 
-    // 前台：结账（你之前修复好的逻辑）
+    // 前台：结账
     @GetMapping("/checkout/{tableNum}")
     public String checkout(@PathVariable String tableNum) {
         List<Order> orders = orderRepository.findByTableNumAndStatusNot(tableNum, "已结账");
@@ -83,72 +80,96 @@ public class OrderController {
         return "结账成功";
     }
 
-    // ===================== 老板页面接口（修复404） =====================
+    // ===================== 老板页面接口 =====================
     @GetMapping("/boss/all")
     public List<Order> bossAll() {
         return orderRepository.findAll();
     }
 
+    // 统计：总订单数、总金额（按真实订单算）
     @GetMapping("/boss/stat")
     public Map<String, Object> bossStat() {
         List<Order> list = orderRepository.findAll();
+        Map<String, Object> map = new HashMap<>();
+
+        // 按 orderNo 去重 → 得到真实订单数
+        Set<String> orderSet = new HashSet<>();
         double totalMoney = 0;
         for (Order o : list) {
+            String key = o.getOrderNo() != null ? o.getOrderNo() : "NO_ID_" + o.getId();
+            orderSet.add(key);
             totalMoney += o.getPrice() * o.getQuantity();
         }
-        Map<String, Object> map = new HashMap<>();
-        map.put("totalCount", list.size());
+
+        map.put("totalCount", orderSet.size()); // 真实订单数
         map.put("totalMoney", totalMoney);
         map.put("lastTime", list.isEmpty() ? "" : list.get(list.size()-1).getCreateTime());
         return map;
     }
 
+    // 按年统计（真实订单数）
     @GetMapping("/boss/yearly")
     public List<Map<String, Object>> bossYearly() {
         List<Order> list = orderRepository.findAll();
-        Map<String, Integer> countMap = new HashMap<>();
-        Map<String, Double> moneyMap = new HashMap<>();
+        Map<String, Map<String, Object>> yearMap = new HashMap<>();
 
         for (Order o : list) {
             if (o.getCreateTime() == null) continue;
             String year = o.getCreateTime().toString().split("-")[0];
-            countMap.put(year, countMap.getOrDefault(year, 0) + 1);
-            moneyMap.put(year, moneyMap.getOrDefault(year, 0.0) + o.getPrice() * o.getQuantity());
+            String orderKey = o.getOrderNo() != null ? o.getOrderNo() : "NO_ID_" + o.getId();
+
+            if (!yearMap.containsKey(year)) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("year", year);
+                item.put("orderSet", new HashSet<String>());
+                item.put("total", 0.0);
+                yearMap.put(year, item);
+            }
+
+            Map<String, Object> item = yearMap.get(year);
+            ((Set<String>) item.get("orderSet")).add(orderKey);
+            item.put("total", (Double) item.get("total") + o.getPrice() * o.getQuantity());
         }
 
         List<Map<String, Object>> res = new ArrayList<>();
-        for (String year : countMap.keySet()) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("year", year);
-            item.put("count", countMap.get(year));
-            item.put("total", moneyMap.get(year));
+        for (Map<String, Object> item : yearMap.values()) {
+            item.put("count", ((Set<String>) item.get("orderSet")).size());
+            item.remove("orderSet");
             res.add(item);
         }
         return res;
     }
 
+    // 按月统计（真实订单数）
     @GetMapping("/boss/monthly")
     public List<Map<String, Object>> bossMonthly() {
         List<Order> list = orderRepository.findAll();
-        Map<String, Integer> countMap = new HashMap<>();
-        Map<String, Double> moneyMap = new HashMap<>();
+        Map<String, Map<String, Object>> monthMap = new HashMap<>();
 
         for (Order o : list) {
             if (o.getCreateTime() == null) continue;
             String month = o.getCreateTime().toString().substring(0, 7);
-            countMap.put(month, countMap.getOrDefault(month, 0) + 1);
-            moneyMap.put(month, moneyMap.getOrDefault(month, 0.0) + o.getPrice() * o.getQuantity());
+            String orderKey = o.getOrderNo() != null ? o.getOrderNo() : "NO_ID_" + o.getId();
+
+            if (!monthMap.containsKey(month)) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("month", month);
+                item.put("orderSet", new HashSet<String>());
+                item.put("total", 0.0);
+                monthMap.put(month, item);
+            }
+
+            Map<String, Object> item = monthMap.get(month);
+            ((Set<String>) item.get("orderSet")).add(orderKey);
+            item.put("total", (Double) item.get("total") + o.getPrice() * o.getQuantity());
         }
 
         List<Map<String, Object>> res = new ArrayList<>();
-        for (String month : countMap.keySet()) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("month", month);
-            item.put("count", countMap.get(month));
-            item.put("total", moneyMap.get(month));
+        for (Map<String, Object> item : monthMap.values()) {
+            item.put("count", ((Set<String>) item.get("orderSet")).size());
+            item.remove("orderSet");
             res.add(item);
         }
         return res;
     }
-
 }
