@@ -26,7 +26,6 @@ export default {
     },
     async finish(id) {
       await fetch("http://localhost:8080/order/kitchen/finish/"+id)
-      alert("已完成制作")
       this.getList()
     }
   }

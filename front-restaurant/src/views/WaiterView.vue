@@ -26,7 +26,6 @@ export default {
     },
     async serve(id) {
       await fetch("http://localhost:8080/order/waiter/serve/"+id)
-      alert("已上菜！")
       this.getList()
     }
   }
