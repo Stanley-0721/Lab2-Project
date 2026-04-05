@@ -89,26 +89,30 @@ export default {
 
     add(dish) {
       let item = this.cart.find(i => i.id === dish.id)
-      if (item) item.count++
-      else this.cart.push({ ...dish, count: 1 })
+      if (item) {
+        item.count++
+      } else {
+        this.cart.push({ ...dish, count: 1 })
+      }
     },
 
     async submit() {
       if (!this.cart.length) return alert("请选菜品")
       if (!this.table) return alert("请选桌号")
 
-      // 生成唯一订单号（关键！）
+      // 生成统一订单号
       const date = new Date()
       const dateStr = date.toISOString().slice(0,10).replace(/-/g, '')
-      const random = Math.floor(Math.random()*10000).toString().padStart(4,'0')
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
       const orderNo = 'O' + dateStr + random
 
+      // 批量下单
       for (let item of this.cart) {
         await fetch("http://localhost:8080/order/add", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            orderNo: orderNo,    // 这里带上订单号
+            orderNo: orderNo,
             dishName: item.name,
             price: item.price,
             quantity: item.count,
@@ -135,14 +139,14 @@ export default {
 .right { flex: 1; display: grid; grid-template-columns: repeat(3,1fr); gap:15px; }
 .card { border:1px solid #ddd; padding:15px; border-radius:10px; text-align:center; }
 .name { font-weight:bold; margin-bottom:6px; }
-.sales { font-size:12px; color:#666; margin-bottom:6px; }
+.sales { font-size:12px; color: #666; margin-bottom:6px; }
 .price { color:red; font-weight:bold; margin-bottom:10px; }
 .btn { background:#0d6efd; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; }
-.cart { background:#f9f9f9; padding:20px; border-radius:10px; }
+.cart { background: #f9f9f9; padding: 20px; border-radius: 10px; }
 .cart-item { margin:4px 0; }
 .total { font-weight:bold; color:red; margin:10px 0; }
 .table-list { display:flex; gap:8px; margin:10px 0; }
-.table-list button { width:40px; height:40px; border-radius:50%; border:1px solid #ccc; cursor:pointer; }
+.table-list button { width: 40px; height: 40px; border-radius:50%; border:1px solid #ccc; cursor:pointer; }
 .table-list button.active { background:#0d6efd; color:white; }
 .submit { background:red; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:10px; }
 </style>

@@ -32,15 +32,19 @@
             </div>
 
             <div class="order-cards" v-if="expandedMonths.includes(month.month)">
-              <div class="order-card" v-for="o in getOrdersByMonth(month.month)" :key="o.id">
+              <!-- 合并后的订单组 -->
+              <div class="order-card" v-for="group in getGroupedOrders(month.month)" :key="group.key">
                 <div class="card-top">
-                  <span>桌号：{{ o.tableNum }}</span>
-                  <span>{{ o.createTime }}</span>
+                  <span>订单号：{{ group.orderNo }}</span>
+                  <span>{{ group.createTime }}</span>
                 </div>
-                <div class="card-body">菜品：{{ o.dishName }} × {{ o.quantity }}</div>
+                <div class="card-body">
+                  桌号：{{ group.tableNum }}<br>
+                  菜品：{{ group.dishes }}
+                </div>
                 <div class="card-bottom">
-                  <span>金额：¥{{ (o.price * o.quantity).toFixed(2) }}</span>
-                  <span class="status">{{ o.status }}</span>
+                  <span>合计：¥{{ group.totalMoney.toFixed(2) }}</span>
+                  <span class="status">{{ group.status }}</span>
                 </div>
               </div>
             </div>
@@ -102,12 +106,39 @@ export default {
       return list
     },
 
-    // ====================== 修复完成 ======================
-    getOrdersByMonth(month) {
-      return this.allOrders.filter(o => {
+    // ===================== 核心：按订单号合并 =====================
+    getGroupedOrders(month) {
+      // 筛选当月订单
+      const orders = this.allOrders.filter(o => {
         if (!o.createTime) return false
-        return o.createTime.slice(0,7) == month
+        return o.createTime.slice(0, 7) === month
       })
+
+      // 按 orderNo 分组
+      const groupMap = {}
+      orders.forEach(o => {
+        const orderNo = o.orderNo || `NO_${o.id}`
+        if (!groupMap[orderNo]) {
+          groupMap[orderNo] = {
+            key: orderNo,
+            orderNo: orderNo,
+            tableNum: o.tableNum,
+            createTime: o.createTime,
+            status: o.status,
+            totalMoney: 0,
+            dishList: []
+          }
+        }
+        groupMap[orderNo].dishList.push(o)
+        groupMap[orderNo].totalMoney += o.price * o.quantity
+      })
+
+      // 拼接菜品名称
+      Object.values(groupMap).forEach(g => {
+        g.dishes = g.dishList.map(i => `${i.dishName}×${i.quantity}`).join('，')
+      })
+
+      return Object.values(groupMap)
     },
 
     toggleYear(year) {
